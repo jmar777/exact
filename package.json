@@ -3,7 +3,7 @@
 	"name": "exact",
 	"description": "A low-boilerplate solution for building isomorphic apps with (ex)press and re(act).",
 	"keywords": ["express", "react", "templates", "views", "reactjs", "react.js", "render", "rendering", "isomorphic", "isomorphism"],
-	"version": "0.0.2",
+	"version": "0.0.3",
 	"repository": {
 		"type": "git",
 		"url": "git://github.com/jmar777/exact.git"
