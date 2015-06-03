@@ -1,4 +1,4 @@
 # exact
-An (ex)press rendering engine for re(act). Exactly what's needed, and no more.
+A low-boilerplate solution for building isomorphic apps with (ex)press and re(act).
 
 Documentation is most likely on the way (said every README without documentation, ever).

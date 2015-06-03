@@ -1,9 +1,9 @@
 {
 	"author": "Jeremy Martin <jmar777@gmail.com> (http://twitter.com/jmar777)",
 	"name": "exact",
-	"description": "An (ex)press rendering engine for re(act). Exactly what's needed, and no more.",
+	"description": "A low-boilerplate solution for building isomorphic apps with (ex)press and re(act).",
 	"keywords": ["express", "react", "templates", "views", "reactjs", "react.js", "render", "rendering", "isomorphic", "isomorphism"],
-	"version": "0.0.1",
+	"version": "0.0.2",
 	"repository": {
 		"type": "git",
 		"url": "git://github.com/jmar777/exact.git"
