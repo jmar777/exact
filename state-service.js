@@ -77,11 +77,14 @@ function createServiceInstance(definition, props) {
 	// instances don't have to re-run it. we should probably follow this convention
 	service.props = _.assign(
 		service.props,
-		definition.getDefaultProps.apply(service),
+		definition.getDefaultProps ? definition.getDefaultProps.apply(service) : {},
 		props
 	);
 
-	service.state = _.assign(service.state, definition.getInitialState.apply(service));
+	service.state = _.assign(
+		service.state,
+		definition.getInitialState ? definition.getInitialState.apply(service) : {}
+	);
 
 	return service;
 }
