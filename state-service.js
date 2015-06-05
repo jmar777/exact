@@ -1,7 +1,7 @@
 var _ = require('lodash');
 
 var StateService = module.exports = Object.create(null, {
-	_cache: { writable: true, value: Object.create(null) }
+	_cache: { writable: true, configurable: true, value: Object.create(null) }
 });
 
 // the cache is used for sharing the same state-services across multiple
@@ -22,74 +22,85 @@ StateService.clearCache = function() {
 };
 
 StateService.createFactory = function(definition) {
-	return createServiceFactory(definition);
-};
+	// capture and cache these now
+	var defaultProps = definition.getDefaultProps ?
+			definition.getDefaultProps() : Object.create(null);
 
-function createServiceFactory(definition) {
 	return Object.create({
-		create: function(cacheKey, props) {
-			// cacheKey is optional
-			if (arguments.length === 1) {
-				props = cacheKey;
-				cacheKey = undefined;
-			}
-
-			var service;
-			if (cacheKey) {
-				service = StateService.cache(cacheKey);
-				if (!service) {
-					service = createServiceInstance(definition, props);
-					StateService.cache(cacheKey, service);
-				}
-			} else {
-				service = createServiceInstance(definition, props);
-			}
-
-			return service;
+		create: function(props) {
+			return createServiceInstance(this, props);
 		},
 		mixin: function(opts) {
-			opts || (opts = {});
-			Array.isArray(opts) && (opts = { keys: opts });
-			// @todo: handle opts.cacheKey
 			return createServiceMixin(this, opts);
 		}
+	}, {
+		factoryId: { value: 'factory-' + largeRandomNumber() },
+		definition: { value: definition },
+		defaultProps: { value: defaultProps }
 	});
-}
+};
 
-function createServiceInstance(definition, props) {
+function createServiceInstance(factory, props) {
+	var definition = factory.definition;
+
+	// before we create a new one, check if we need to return a cached instance
+	props = _.assign({}, factory.defaultProps, props);
+
+	var uniqueKey = definition.getUniqueKey ? definition.getUniqueKey(props) : null;
+
+	// scope it to the factory
+	if (uniqueKey) {
+		uniqueKey = factory.factoryId + '::' + uniqueKey;
+	}
+
+	var serviceInstance;
+
+	// return a cached instance, if appropriate
+	if (uniqueKey) {
+		serviceInstance = StateService.cache(uniqueKey);
+		if (serviceInstance) {
+			return serviceInstance;
+		}
+	}
+
+	// we need to create a new one
 	var proto = _.assign(
 		// create a new prototype object
 		{},
 		// ...that includes all of our default prototype methods
-		serviceInstanceProto,
+		defaultServiceInstanceProto,
 		// ...and all provided methods (other than the lifecycle hooks)
-		_.omit(definition, ['getDefaultProps', 'getInitialState'])
+		_.omit(definition, [
+			'getDefaultProps',
+			'getUniqueKey',
+			'getInitialState',
+			'registeredComponentWillMount',
+			'registeredComponentDidMount',
+			'registeredComponentWillUnmount'
+		])
 	);
 
-	var service = Object.create(proto, {
-		props: { writable: true, configurable: true, value: Object.create(null) },
-		state: { writable: true, configurable: true, value: Object.create(null) },
-		_uuid: { value: 'state-service-' + Math.ceil(Math.random() * 999999999999) },
-		_registeredComponents: { value: Object.create(null) }
+	serviceInstance = Object.create(proto, {
+		props: { writable: true, configurable: true, value: props },
+		state: { writable: true, configurable: true },
+		_uuid: { value: 'state-service-' + largeRandomNumber() },
+		_registeredComponents: { value: Object.create(null) },
+		registeredComponentsCount: { writable: true, configurable: true, value: 0 }
 	});
 
-	// @todo: react caches the result of `getDefaultProps()`, so subsequent
-	// instances don't have to re-run it. we should probably follow this convention
-	service.props = _.assign(
-		service.props,
-		definition.getDefaultProps ? definition.getDefaultProps.apply(service) : {},
-		props
+	serviceInstance.state = _.assign(
+		Object.create(null),
+		definition.getInitialState ? definition.getInitialState.apply(serviceInstance) : {}
 	);
 
-	service.state = _.assign(
-		service.state,
-		definition.getInitialState ? definition.getInitialState.apply(service) : {}
-	);
+	if (uniqueKey) {
+		StateService.cache(uniqueKey, serviceInstance)
+	}
 
-	return service;
+	return serviceInstance;
 }
 
-var serviceInstanceProto = {
+var defaultServiceInstanceProto = {
 	registerComponent: function(component, keys) {
 		var self = this,
 			data = this.getComponentData(component);
@@ -103,10 +114,13 @@ var serviceInstanceProto = {
 		// ...and store a reference to the component itself
 		data.component = component;
 
+		this.registeredComponentsCount++;
+
 		return this;
 	},
 	deregisterComponent: function(component, keys) {
 		this.destroyComponentData(component);
+		this.registeredComponentsCount--;
 	},
 	getState: function(keys) {
 		return _.pick(this.state, keys || Object.keys(this.state));
@@ -140,7 +154,7 @@ var serviceInstanceProto = {
 		// first get the component's uuid
 		var componentUuid = component[this._uuid + '-id'];
 		if (!componentUuid) {
-			componentUuid = component[this._uuid + '-id'] = Math.ceil(Math.random() * 999999999999);
+			componentUuid = component[this._uuid + '-id'] = largeRandomNumber();
 		}
 
 		// then get the component's data
@@ -164,15 +178,27 @@ var serviceInstanceProto = {
 };
 
 function createServiceMixin(factory, opts) {
-	var service;
+	opts || (opts = {});
+	Array.isArray(opts) && (opts = { key: opts });
+
+	var definition = factory.definition,
+		service;
+
+	// make sure hooks only get called once...
+	var willMountInvoked = false,
+		didMountInvoked = false,
+		willUnmountInvoked = false;
 
 	return {
 		getInitialState: function() {
-			if (opts.cacheKey) {
-				service = factory.create(opts.cacheKey, this.props);
-			} else {
-				service = factory.create(this.props);
+			var props = this.props;
+
+			if (definition.mapProps) {
+				props = definition.mapProps(props);
 			}
+
+			service = factory.create(props);
+
 			service.registerComponent(this, opts.keys);
 
 			if (opts.ref) {
@@ -182,7 +208,25 @@ function createServiceMixin(factory, opts) {
 
 			return service.getState(opts.keys);
 		},
+		componentWillMount: function() {
+			if (willMountInvoked) return;
+			willMountInvoked = true;
+			service.registeredComponentWillMount &&
+				service.registeredComponentWillMount();
+		},
+		componentDidMount: function() {
+			if (didMountInvoked) return;
+			didMountInvoked = true;
+			service.registeredComponentDidMount &&
+				service.registeredComponentDidMount();
+		},
 		componentWillUnmount: function() {
+			if (this.registeredComponentsCount === 1 && !willUnmountInvoked) {
+				willUnmountInvoked = true;
+				service.registeredComponentWillUnmount &&
+					service.registeredComponentWillUnmount();
+			}
+
 			// @todo: maybe we should do a setTimeout, and then deregister, to
 			// let component code still have access the service here
 			service.deregisterComponent(this);
@@ -190,7 +234,10 @@ function createServiceMixin(factory, opts) {
 			if (opts.ref) {
 				delete this.serviceRefs[opts.ref];
 			}
-
 		}
 	};
+}
+
+function largeRandomNumber() {
+	return Math.ceil(Math.random() * 999999999999);
 }
