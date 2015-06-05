@@ -211,20 +211,20 @@ function createServiceMixin(factory, opts) {
 		componentWillMount: function() {
 			if (willMountInvoked) return;
 			willMountInvoked = true;
-			service.registeredComponentWillMount &&
-				service.registeredComponentWillMount();
+			definition.registeredComponentWillMount &&
+				definition.registeredComponentWillMount.apply(service);
 		},
 		componentDidMount: function() {
 			if (didMountInvoked) return;
 			didMountInvoked = true;
-			service.registeredComponentDidMount &&
-				service.registeredComponentDidMount();
+			definition.registeredComponentDidMount &&
+				definition.registeredComponentDidMount.apply(service);
 		},
 		componentWillUnmount: function() {
 			if (this.registeredComponentsCount === 1 && !willUnmountInvoked) {
 				willUnmountInvoked = true;
-				service.registeredComponentWillUnmount &&
-					service.registeredComponentWillUnmount();
+				definition.registeredComponentWillUnmount &&
+					definition.registeredComponentWillUnmount.apply(service);
 			}
 
 			// @todo: maybe we should do a setTimeout, and then deregister, to
