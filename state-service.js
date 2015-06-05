@@ -15,10 +15,12 @@ StateService.cache = function(key, val) {
 	this._cache[key] = val;
 };
 
-StateService.clearCache = function() {
-	// @todo: i don't think we need to manually delete keys to avoid memory
-	// leaks, but we should test it to be sure
-	this._cache = Object.create(null);
+StateService.clearCache = function(key) {
+	if (arguments.length === 1) {
+		delete this._cache[key];
+	} else {
+		this._cache = Object.create(null);
+	}
 };
 
 StateService.createFactory = function(definition) {
@@ -85,7 +87,8 @@ function createServiceInstance(factory, props) {
 		state: { writable: true, configurable: true },
 		_uuid: { value: 'state-service-' + largeRandomNumber() },
 		_registeredComponents: { value: Object.create(null) },
-		registeredComponentsCount: { writable: true, configurable: true, value: 0 }
+		_registeredComponentsCount: { writable: true, configurable: true, value: 0 },
+		_uniqueKey: { value: uniqueKey }
 	});
 
 	serviceInstance.state = _.assign(
@@ -114,13 +117,13 @@ var defaultServiceInstanceProto = {
 		// ...and store a reference to the component itself
 		data.component = component;
 
-		this.registeredComponentsCount++;
+		this._registeredComponentsCount++;
 
 		return this;
 	},
 	deregisterComponent: function(component, keys) {
 		this.destroyComponentData(component);
-		this.registeredComponentsCount--;
+		this._registeredComponentsCount--;
 	},
 	getState: function(keys) {
 		return _.pick(this.state, keys || Object.keys(this.state));
@@ -184,11 +187,6 @@ function createServiceMixin(factory, opts) {
 	var definition = factory.definition,
 		service;
 
-	// make sure hooks only get called once...
-	var willMountInvoked = false,
-		didMountInvoked = false,
-		willUnmountInvoked = false;
-
 	return {
 		getInitialState: function() {
 			var props = this.props;
@@ -209,20 +207,20 @@ function createServiceMixin(factory, opts) {
 			return service.getState(opts.keys);
 		},
 		componentWillMount: function() {
-			if (willMountInvoked) return;
-			willMountInvoked = true;
+			if (service._willMountInvoked) return;
+			service._willMountInvoked = true;
 			definition.registeredComponentWillMount &&
 				definition.registeredComponentWillMount.apply(service);
 		},
 		componentDidMount: function() {
-			if (didMountInvoked) return;
-			didMountInvoked = true;
+			if (service._didMountInvoked) return;
+			service._didMountInvoked = true;
 			definition.registeredComponentDidMount &&
 				definition.registeredComponentDidMount.apply(service);
 		},
 		componentWillUnmount: function() {
-			if (this.registeredComponentsCount === 1 && !willUnmountInvoked) {
-				willUnmountInvoked = true;
+			if (service._registeredComponentsCount === 1 && !service._willUnmountInvoked) {
+				service._willUnmountInvoked = true;
 				definition.registeredComponentWillUnmount &&
 					definition.registeredComponentWillUnmount.apply(service);
 			}
@@ -233,6 +231,11 @@ function createServiceMixin(factory, opts) {
 
 			if (opts.ref) {
 				delete this.serviceRefs[opts.ref];
+			}
+
+			// remove from cache
+			if (service._uniqueKey) {
+				StateService.clearCache(service._uniqueKey);
 			}
 		}
 	};
