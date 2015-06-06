@@ -20,7 +20,7 @@ StateService.locals = function(locals) {
 
 	// if we're in the browser
 	if (typeof window !== 'undefined') {
-		return window.__EXACT_PROPS___ || {};
+		return window.__EXACT_PROPS__ || {};
 	}
 
 	// probably on the server... #lgtm
