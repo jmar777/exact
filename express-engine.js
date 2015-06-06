@@ -28,9 +28,9 @@ module.exports = function createEngine(opts) {
 
 			var props = _.merge({}, _.omit(options, ['settings', '_locals', 'cache']));
 
-			// clear our StateService cache before each render (cached state services)
-			// are only shared between components in the same render
-			StateService.clearCache();
+			// this needs to be reset between each render
+			StateService.reset();
+			StateService.locals(props);
 
 			// render it to a string
 			var element = factory(props),

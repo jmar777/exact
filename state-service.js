@@ -1,8 +1,31 @@
-var _ = require('lodash');
+var _ = require('lodash'),
+	EventEmitter2 = require('eventemitter2');
+
+// this module provides a different export depending on the module loader...
+EventEmitter2.EventEmitter2 && (EventEmitter2 = EventEmitter2.EventEmitter2);
 
 var StateService = module.exports = Object.create(null, {
-	_cache: { writable: true, configurable: true, value: Object.create(null) }
+	_cache: { writable: true, configurable: true, value: Object.create(null) },
+	_locals: { writable: true, configurable: true, value: Object.create(null) },
+	bus: { writable: true, configurable: true, value: new EventEmitter2() }
 });
+
+
+StateService.locals = function(locals) {
+	// this usually only gets set by express-engine.js
+	if (locals) {
+		this._locals = locals;
+		return;
+	}
+
+	// if we're in the browser
+	if (typeof window !== 'undefined') {
+		return window.__EXACT_PROPS___ || {};
+	}
+
+	// probably on the server... #lgtm
+	return this._locals;
+};
 
 // the cache is used for sharing the same state-services across multiple
 // components (coordinated based on some cache key). Client-side we never have
@@ -21,6 +44,12 @@ StateService.clearCache = function(key) {
 	} else {
 		this._cache = Object.create(null);
 	}
+};
+
+StateService.reset = function() {
+	this.clearCache();
+	this._locals = Object.create(null);
+	this.bus.removeAllListeners();
 };
 
 StateService.createFactory = function(definition) {
