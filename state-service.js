@@ -134,8 +134,11 @@ function createServiceInstance(factory, props) {
 
 var defaultServiceInstanceProto = {
 	registerComponent: function(component, keys) {
-		var self = this,
-			data = this.getComponentData(component);
+		var self = this;
+
+		// note: the act of fetching the data bag for this component effectively
+		// registers it.
+		var data = this.getComponentData(component);
 
 		// store a quick lookup map of all the keys that this component is tracking
 		data.keyMap = Object.create(null);
@@ -167,10 +170,18 @@ var defaultServiceInstanceProto = {
 		// update our local state copy
 		_.assign(this.state, state);
 
-		// loop through our registered components and apply state changes
+		// note: calling `setState()` on a component in this loop can cause the
+		// actual list of registered components to change. we don't need to
+		// worry about added components, since they'll be initialized with our
+		// (already updated) state object. so, we just need to check for removed
+		// components on each iteration.
 		Object.keys(this._registeredComponents).forEach(function(id) {
-			var data = self._registeredComponents[id],
-				keyMap = data.keyMap,
+			var data = self._registeredComponents[id];
+
+			// make sure this component wasn't removed earlier during the loop
+			if (!data) return;
+
+			var keyMap = data.keyMap,
 				component = data.component;
 
 			// create a new state object using only the keys each component is tracking
@@ -200,6 +211,7 @@ var defaultServiceInstanceProto = {
 	destroyComponentData: function(component) {
 		// first get the component's uuid
 		var componentUuid = component[this._uuid + '-id'];
+
 		if (componentUuid) {
 			delete this._registeredComponents[componentUuid];
 			delete component[this._uuid + '-id'];
