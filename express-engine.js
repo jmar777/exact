@@ -18,6 +18,12 @@ module.exports = function createEngine(opts) {
 			babelRegistered = true;
 		}
 
+		var props = _.omit(options, ['settings', '_locals', 'cache']);
+
+		// this needs to be reset between each render
+		StateService.reset();
+		StateService.locals(props);
+
 		try {
 			// grab our cached element factory (or create a new one)
 			var factory = factoryCache[filename];
@@ -25,12 +31,6 @@ module.exports = function createEngine(opts) {
 				var view = require(filename);
 				factory = factoryCache[filename] = React.createFactory(view);
 			}
-
-			var props = _.merge({}, _.omit(options, ['settings', '_locals', 'cache']));
-
-			// this needs to be reset between each render
-			StateService.reset();
-			StateService.locals(props);
 
 			// render it to a string
 			var element = factory(props),
