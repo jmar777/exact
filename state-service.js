@@ -264,6 +264,11 @@ function createServiceMixin(factory, opts) {
 				service._willUnmountInvoked = true;
 				definition.registeredComponentWillUnmount &&
 					definition.registeredComponentWillUnmount.apply(service);
+
+				// remove from cache
+				if (service._uniqueKey) {
+					StateService.clearCache(service._uniqueKey);
+				}
 			}
 
 			// @todo: maybe we should do a setTimeout, and then deregister, to
@@ -272,11 +277,6 @@ function createServiceMixin(factory, opts) {
 
 			if (opts.ref) {
 				delete this.serviceRefs[opts.ref];
-			}
-
-			// remove from cache
-			if (service._uniqueKey) {
-				StateService.clearCache(service._uniqueKey);
 			}
 		}
 	};
