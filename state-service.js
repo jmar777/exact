@@ -99,16 +99,7 @@ function createServiceInstance(factory, props) {
 		// create a new prototype object
 		{},
 		// ...that includes all of our default prototype methods
-		defaultServiceInstanceProto,
-		// ...and all provided methods (other than the lifecycle hooks)
-		_.omit(definition, [
-			'getDefaultProps',
-			'getUniqueKey',
-			'getInitialState',
-			'registeredComponentWillMount',
-			'registeredComponentDidMount',
-			'registeredComponentWillUnmount'
-		])
+		defaultServiceInstanceProto
 	);
 
 	serviceInstance = Object.create(proto, {
@@ -118,6 +109,25 @@ function createServiceInstance(factory, props) {
 		_registeredComponents: { value: Object.create(null) },
 		_registeredComponentsCount: { writable: true, configurable: true, value: 0 },
 		_uniqueKey: { value: uniqueKey }
+	});
+
+	// all of the provided methods (other than our lifecycle hooks) need to be
+	// assigned as already-bound methods to the instance (similar to how React
+	// component methods are bound).
+	_.difference(Object.keys(definition), [
+		'getDefaultProps',
+		'getUniqueKey',
+		'getInitialState',
+		'registeredComponentWillMount',
+		'registeredComponentDidMount',
+		'registeredComponentWillUnmount'
+	]).forEach(function(key) {
+		var val = definition[key];
+		Object.defineProperty(serviceInstance, key, {
+			writable: true,
+			configurable: true,
+			value: typeof val === 'function' ? val.bind(serviceInstance) : val
+		});
 	});
 
 	serviceInstance.state = _.assign(
