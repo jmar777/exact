@@ -1,4 +1,5 @@
 var React = require('react'),
+	ReactDOMServer = require('react-dom/server'),
 	_ = require('lodash'),
 	StateService = require('./state-service'),
 	CLIENT_VAR = '__EXACT_PROPS__';
@@ -34,7 +35,7 @@ module.exports = function createEngine(opts) {
 
 			// render it to a string
 			var element = factory(props),
-				html = doctype + React.renderToString(element),
+				html = doctype + ReactDOMServer.renderToString(element),
 				scriptTag = buildScript(props, CLIENT_VAR);
 
 			html = html.replace('</head>', scriptTag + '</head>');

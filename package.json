@@ -3,7 +3,7 @@
 	"name": "exact",
 	"description": "A low-boilerplate solution for building isomorphic apps with (ex)press and re(act).",
 	"keywords": ["express", "react", "templates", "views", "reactjs", "react.js", "render", "rendering", "isomorphic", "isomorphism"],
-	"version": "0.1.0",
+	"version": "0.2.0",
 	"repository": {
 		"type": "git",
 		"url": "git://github.com/jmar777/exact.git"
@@ -14,8 +14,9 @@
 		"eventemitter2": "^0.4.14"
 	},
 	"peerDependencies": {
-		"react": ">=0.13.0",
-		"babel": ">=5.0.0"
+		"react": "^0.14.0",
+		"react-dom": "^0.14.0",
+		"babel": "^5.0.0"
 	},
 	"engines": {
 		"node": ">=0.10.0"

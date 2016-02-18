@@ -1,10 +1,11 @@
-var React = require('react');
+var React = require('react'),
+	ReactDOM = require('react-dom');
 
 module.exports = {
 	boot: function bootClient(opts, cb) {
 		var view = opts.view;
 
-		React.render(
+		ReactDOM.render(
 			React.createElement(view, window.__EXACT_PROPS__),
 			document,
 			cb
