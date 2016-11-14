@@ -270,6 +270,8 @@ function createServiceMixin(factory, opts) {
 				definition.registeredComponentDidMount.apply(service);
 		},
 		componentWillUnmount: function() {
+			var self = this;
+
 			if (service._registeredComponentsCount === 1 && !service._willUnmountInvoked) {
 				service._willUnmountInvoked = true;
 				definition.registeredComponentWillUnmount &&
@@ -281,13 +283,12 @@ function createServiceMixin(factory, opts) {
 				}
 			}
 
-			// @todo: maybe we should do a setTimeout, and then deregister, to
-			// let component code still have access the service here
-			service.deregisterComponent(this);
-
-			if (opts.ref) {
-				delete this.serviceRefs[opts.ref];
-			}
+			setTimeout(function() {
+				service.deregisterComponent(self);
+				if (opts.ref) {
+					delete self.serviceRefs[opts.ref];
+				}
+			}, 0);
 		}
 	};
 }
