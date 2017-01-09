@@ -48,12 +48,15 @@ module.exports = function createEngine(opts) {
 };
 
 function buildScript(props) {
-	var scriptId = 'exact-script-' + Math.ceil(Math.random() * 999999999);
+	// note: OWASP suggests encoding other characters as well because HTML attributes can be single, double,
+	// or non-quoted. In this case we know that we only double-quote, so the relevant OWASP statement is:
+	//   "Properly quoted attributes can only be escaped with the corresponding quote".
+	// Read more here: https://www.owasp.org/index.php/XSS_(Cross_Site_Scripting)_Prevention_Cheat_Sheet
+	var attrEncodedProps = JSON.stringify(props).replace(/"/g, '&quot;');
 
-	return '<script id="' + scriptId + '" type="application/javascript">var ' +
-			CLIENT_VAR + '=' + JSON.stringify(props) + ';' +
-			'(function(){' +
-			'var theScript = document.getElementById("' + scriptId + '");' +
-			'theScript.parentNode.removeChild(theScript);' +
-			'})();</script>';
+	return '<script type="text/javascript" data-exact-props="' + attrEncodedProps + '">' +
+				'window.' + CLIENT_VAR + '=' + 'JSON.parse(' +
+					'document.querySelector("script[data-exact-props]").getAttribute("data-exact-props")' +
+				');' +
+			'</script>';
 }
