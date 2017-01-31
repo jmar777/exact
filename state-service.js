@@ -108,7 +108,8 @@ function createServiceInstance(factory, props) {
 		_uuid: { value: 'state-service-' + largeRandomNumber() },
 		_registeredComponents: { value: Object.create(null) },
 		_registeredComponentsCount: { writable: true, configurable: true, value: 0 },
-		_uniqueKey: { value: uniqueKey }
+		_uniqueKey: { value: uniqueKey },
+		_definition: { value: definition }
 	});
 
 	// all of the provided methods (other than our lifecycle hooks) need to be
@@ -239,19 +240,16 @@ function createServiceMixin(factory, opts) {
 	opts || (opts = {});
 	Array.isArray(opts) && (opts = { key: opts });
 
-	var definition = factory.definition,
-		service;
-
 	return {
 		getInitialState: function() {
-			var props = this.props;
+			var props = this.props,
+				definition = factory.definition;
 
 			if (definition.mapProps) {
 				props = definition.mapProps(props);
 			}
 
-			service = factory.create(props);
-
+			var service = factory.create(props);
 			service.registerComponent(this, opts.keys);
 
 			if (opts.ref) {
@@ -259,45 +257,70 @@ function createServiceMixin(factory, opts) {
 				this.serviceRefs[opts.ref] = service;
 			}
 
+			var stateServices = this._stateServices;
+			if (!stateServices) {
+				stateServices = this._stateServices = [];
+			}
+
+			stateServices.push(service);
+
 			return service.getState(opts.keys);
 		},
 		componentWillMount: function() {
-			if (service._willMountInvoked) return;
-			service._willMountInvoked = true;
-			definition.registeredComponentWillMount &&
-				definition.registeredComponentWillMount.apply(service);
+			var stateServices = this._stateServices;
+			stateServices.forEach(function(service) {
+				if (service._willMountInvoked) return;
+
+				var definition = service._definition;
+
+				service._willMountInvoked = true;
+				definition.registeredComponentWillMount &&
+					definition.registeredComponentWillMount.apply(service);
+			});
 		},
 		componentDidMount: function() {
-			if (service._didMountInvoked) return;
-			service._didMountInvoked = true;
-			definition.registeredComponentDidMount &&
-				definition.registeredComponentDidMount.apply(service);
+			var stateServices = this._stateServices;
+
+			stateServices.forEach(function(service) {
+				if (service._didMountInvoked) return;
+
+				var definition = service._definition;
+
+				service._didMountInvoked = true;
+				definition.registeredComponentDidMount &&
+					definition.registeredComponentDidMount.apply(service);
+			});
 		},
 		componentWillUnmount: function() {
-			var self = this;
+			var self = this,
+				stateServices = this._stateServices;
 
-			if (service._registeredComponentsCount === 1 && !service._willUnmountInvoked) {
-				service._willUnmountInvoked = true;
-				definition.registeredComponentWillUnmount &&
-					definition.registeredComponentWillUnmount.apply(service);
-
-				// remove from cache
-				if (service._uniqueKey) {
-					StateService.clearCache(service._uniqueKey);
-				}
-			}
-
-			// this is a quick flag we can check before calling setState, as there is a tiny
-			// race condition between this moment in time and when we actually deregister
-			// the component
-			this._exactUnmounted = true;
-
+			// schedule a future task to deregister the component, so that the component still
+			// has access to the service in it's own `componentWillUnmount` handler
 			setTimeout(function() {
-				service.deregisterComponent(self);
-				if (opts.ref) {
-					delete self.serviceRefs[opts.ref];
-				}
+				stateServices.forEach(function(service) {
+					if (service._registeredComponentsCount === 1 && !service._willUnmountInvoked) {
+						var definition = service._definition;
+
+						service._willUnmountInvoked = true;
+						definition.registeredComponentWillUnmount &&
+							definition.registeredComponentWillUnmount.apply(service);
+
+						// remove the service from cache
+						if (service._uniqueKey) {
+							StateService.clearCache(service._uniqueKey);
+						}
+					}
+
+					service.deregisterComponent(self);
+					delete self._stateServices;
+					if (opts.ref) {
+						delete self.serviceRefs[opts.ref];
+					}
+				});
 			}, 0);
+
+			this._exactUnmounted = true;
 		}
 	};
 }
