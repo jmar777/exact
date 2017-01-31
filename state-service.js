@@ -194,6 +194,10 @@ var defaultServiceInstanceProto = {
 			var keyMap = data.keyMap,
 				component = data.component;
 
+			// guard against calling `setState` on a component that is unmounting, but
+			// hasn't quite deregistered yet (see comments in `componentWillUnmount`).
+			if(component._exactUnmounted) return;
+
 			// create a new state object using only the keys each component is tracking
 			var newState = {};
 			Object.keys(state).forEach(function(key) {
@@ -282,6 +286,11 @@ function createServiceMixin(factory, opts) {
 					StateService.clearCache(service._uniqueKey);
 				}
 			}
+
+			// this is a quick flag we can check before calling setState, as there is a tiny
+			// race condition between this moment in time and when we actually deregister
+			// the component
+			this._exactUnmounted = true;
 
 			setTimeout(function() {
 				service.deregisterComponent(self);
