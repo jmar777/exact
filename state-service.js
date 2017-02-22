@@ -89,6 +89,7 @@ function createServiceInstance(factory, props) {
 	// return a cached instance, if appropriate
 	if (uniqueKey) {
 		serviceInstance = StateService.cache(uniqueKey);
+
 		if (serviceInstance) {
 			return serviceInstance;
 		}
@@ -107,7 +108,6 @@ function createServiceInstance(factory, props) {
 		state: { writable: true, configurable: true },
 		_uuid: { value: 'state-service-' + largeRandomNumber() },
 		_registeredComponents: { value: Object.create(null) },
-		_registeredComponentsCount: { writable: true, configurable: true, value: 0 },
 		_uniqueKey: { value: uniqueKey },
 		_definition: { value: definition }
 	});
@@ -156,17 +156,13 @@ var defaultServiceInstanceProto = {
 		(keys || Object.keys(this.state)).forEach(function(key) {
 			data.keyMap[key] = true;
 		});
-
 		// ...and store a reference to the component itself
 		data.component = component;
-
-		this._registeredComponentsCount++;
 
 		return this;
 	},
 	deregisterComponent: function(component, keys) {
 		this.destroyComponentData(component);
-		this._registeredComponentsCount--;
 	},
 	getState: function(keys) {
 		return _.pick(this.state, keys || Object.keys(this.state));
@@ -299,7 +295,15 @@ function createServiceMixin(factory, opts) {
 			// has access to the service in it's own `componentWillUnmount` handler
 			setTimeout(function() {
 				stateServices.forEach(function(service) {
-					if (service._registeredComponentsCount === 1 && !service._willUnmountInvoked) {
+					service.deregisterComponent(self);
+					delete self._stateServices;
+					if (opts.ref) {
+						delete self.serviceRefs[opts.ref];
+					}
+
+					var registeredComponentsCount = Object.keys(service._registeredComponents).length;
+
+					if (registeredComponentsCount === 0 && !service._willUnmountInvoked) {
 						var definition = service._definition;
 
 						service._willUnmountInvoked = true;
@@ -310,12 +314,6 @@ function createServiceMixin(factory, opts) {
 						if (service._uniqueKey) {
 							StateService.clearCache(service._uniqueKey);
 						}
-					}
-
-					service.deregisterComponent(self);
-					delete self._stateServices;
-					if (opts.ref) {
-						delete self.serviceRefs[opts.ref];
 					}
 				});
 			}, 0);
