@@ -15,7 +15,10 @@ module.exports = function createEngine(opts) {
 	return function renderFile(filename, options, cb) {
 		// defer babel registration until the first request so we can grab the view path
 		if (!babelRegistered) {
-			require('babel/register')({ only: options.settings.views });
+			require('babel-core/register')({
+				only: options.settings.views,
+				presets: ['react', 'es2015', 'stage-3']
+			})
 			babelRegistered = true;
 		}
 
